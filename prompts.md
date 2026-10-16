@@ -74,3 +74,20 @@
 
 ### Solution Implemented
 - Generated `prompts.md` documenting the complete project prompt history, architectural implementations, and API details.
+
+---
+
+## Turn 5: Mobile Viewport Optimization for Map Monitor
+
+### User Request
+> your display of message is blocking the map monitor on a mobile phone screen setup, optimise for mobile view
+
+### Solution Implemented
+1. **Unblocked SVG Map Canvas on Mobile Screens**:
+   - Identified that the floating station telemetry HUD overlay was placed with absolute coordinates `bottom-3 left-3 right-3` inside the SVG canvas, covering the entire southern half of Singapore (Sentosa, Jurong Island, South station, Central station) on smaller viewports.
+   - Decoupled the mobile layout: on mobile screens (`< sm`), the regional status and PSI/PM2.5 metrics are cleanly docked **below** the SVG canvas in a dedicated companion card, completely freeing up 100% of the SVG map view with zero overlap.
+   - On desktop viewports (`sm:` and up), the detail card remains unobtrusively docked in the corner.
+2. **Responsive Height & Touch Targets**:
+   - Adjusted mobile SVG map container height to `h-[270px] sm:h-[370px] md:h-[430px]` to maintain crisp geometric ratios without squishing.
+   - Enhanced touch-friendly selector pill buttons with horizontal scroll and clear active states.
+

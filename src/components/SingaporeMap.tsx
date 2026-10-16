@@ -118,7 +118,7 @@ export const SingaporeMap: React.FC<SingaporeMapProps> = ({
       </div>
 
       {/* Main Map Canvas Area */}
-      <div className="relative mt-4 w-full aspect-[16/9] min-h-[320px] max-h-[500px] overflow-hidden rounded-lg bg-slate-950/80 border border-slate-800/80">
+      <div className="relative mt-4 w-full h-[270px] sm:h-[370px] md:h-[430px] overflow-hidden rounded-lg bg-slate-950/80 border border-slate-800/80">
         {/* Subtle coordinate grid */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b15_1px,transparent_1px),linear-gradient(to_bottom,#1e293b15_1px,transparent_1px)] bg-[size:32px_32px]" />
 
@@ -288,80 +288,122 @@ export const SingaporeMap: React.FC<SingaporeMapProps> = ({
           </text>
         </svg>
 
-        {/* Floating Quick Region HUD Detail */}
-        <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-sm rounded-lg border border-slate-800 bg-slate-900/95 p-3.5 shadow-xl backdrop-blur-md">
+        {/* Desktop/Tablet Floating HUD (Only on sm: and up) */}
+        <div className="hidden sm:block absolute bottom-3 left-3 max-w-xs rounded-lg border border-slate-800 bg-slate-900/95 p-3 shadow-xl backdrop-blur-md transition-all">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="text-xs font-mono text-slate-400">
+              <div className="text-[11px] font-mono text-slate-400">
                 {currentReading.name}
               </div>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className={`text-2xl font-bold font-mono tabular-nums ${psiColor.text}`}>
+                <span className={`text-xl font-bold font-mono tabular-nums ${psiColor.text}`}>
                   {currentReading.psi24h}
                 </span>
-                <span className="text-xs font-mono text-slate-400">24-hr PSI</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200">
+                <span className="text-[11px] font-mono text-slate-400">24h PSI</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200">
                   {psiCategory}
                 </span>
               </div>
             </div>
 
             <div className="text-right">
-              <div className="text-xs font-mono text-slate-400">1-hr PM2.5</div>
-              <div className={`text-lg font-bold font-mono tabular-nums ${pm25Band.color}`}>
-                {currentReading.pm25OneHour} <span className="text-xs font-normal text-slate-400">µg/m³</span>
+              <div className="text-[11px] font-mono text-slate-400">1-hr PM2.5</div>
+              <div className={`text-base font-bold font-mono tabular-nums ${pm25Band.color}`}>
+                {currentReading.pm25OneHour} <span className="text-[10px] font-normal text-slate-400">µg/m³</span>
               </div>
               <div className="text-[10px] font-mono text-slate-400">{pm25Band.label}</div>
             </div>
           </div>
 
-          <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span className="flex items-center gap-1 font-mono text-[11px]">
+          <div className="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span className="flex items-center gap-1 font-mono text-[10px]">
               <Info className="w-3 h-3 text-cyan-400" />
-              Click any station to lock focus
+              Tap station to focus
             </span>
             {selectedRegion !== 'national' && (
               <button
                 onClick={() => onSelectRegion('national')}
-                className="text-xs text-cyan-400 hover:text-cyan-300 font-medium underline"
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 font-medium underline"
               >
-                Reset to National
+                Reset
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Region Fast Selector Buttons */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-mono text-slate-400 mr-1">Select Region:</span>
-        {(['national', 'north', 'south', 'east', 'west', 'central'] as RegionId[]).map((rId) => {
-          const r = readings[rId];
-          const isSelected = selectedRegion === rId;
-          const cat = getCategoryFromPSI(r.psi24h);
-          const col = getCategoryColor(cat);
-
-          return (
-            <button
-              key={rId}
-              onClick={() => onSelectRegion(rId)}
-              className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded-md border transition-all whitespace-nowrap ${
-                isSelected
-                  ? 'bg-slate-800 border-cyan-400/80 text-white shadow-sm'
-                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
-              }`}
-            >
-              <span
-                className="w-2 h-2 rounded-full shrink-0"
-                style={{ backgroundColor: col.hex }}
-              />
-              <span className="capitalize">{rId === 'national' ? 'National (All)' : rId}</span>
-              <span className="font-mono text-[11px] text-slate-400 tabular-nums">
-                {r.psi24h}
+      {/* Mobile Dedicated Docked Info Panel (Cleanly placed below the map, never overlapping SVG) */}
+      <div className="sm:hidden mt-3 rounded-lg border border-slate-800 bg-slate-950/90 p-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-mono text-slate-400 truncate">
+              {currentReading.name}
+            </div>
+            <div className="flex items-baseline gap-2 mt-0.5">
+              <span className={`text-2xl font-bold font-mono tabular-nums ${psiColor.text}`}>
+                {currentReading.psi24h}
               </span>
+              <span className="text-xs font-mono text-slate-400">PSI</span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200">
+                {psiCategory}
+              </span>
+            </div>
+          </div>
+
+          <div className="text-right shrink-0 pl-3 border-l border-slate-800">
+            <div className="text-[10px] font-mono text-slate-400">1-hr PM2.5</div>
+            <div className={`text-lg font-bold font-mono tabular-nums ${pm25Band.color}`}>
+              {currentReading.pm25OneHour} <span className="text-[10px] font-normal text-slate-400">µg/m³</span>
+            </div>
+            <div className="text-[10px] font-mono text-slate-400">{pm25Band.label}</div>
+          </div>
+        </div>
+
+        {selectedRegion !== 'national' && (
+          <div className="mt-2 pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs">
+            <span className="text-[11px] text-slate-500 font-mono">Filtered to {activeRegion}</span>
+            <button
+              onClick={() => onSelectRegion('national')}
+              className="text-xs text-cyan-400 font-medium underline py-0.5"
+            >
+              Reset to National View
             </button>
-          );
-        })}
+          </div>
+        )}
+      </div>
+
+      {/* Region Fast Selector Buttons (Mobile horizontal touch scrollable / wrapping) */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2">
+        <span className="text-xs font-mono text-slate-400 shrink-0">Select Region:</span>
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          {(['national', 'north', 'south', 'east', 'west', 'central'] as RegionId[]).map((rId) => {
+            const r = readings[rId];
+            const isSelected = selectedRegion === rId;
+            const cat = getCategoryFromPSI(r.psi24h);
+            const col = getCategoryColor(cat);
+
+            return (
+              <button
+                key={rId}
+                onClick={() => onSelectRegion(rId)}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border transition-all whitespace-nowrap shrink-0 ${
+                  isSelected
+                    ? 'bg-slate-800 border-cyan-400/80 text-white shadow-sm ring-1 ring-cyan-400/30'
+                    : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                }`}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: col.hex }}
+                />
+                <span className="capitalize">{rId === 'national' ? 'All (Nat)' : rId}</span>
+                <span className="font-mono text-[11px] text-slate-400 tabular-nums">
+                  {r.psi24h}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
