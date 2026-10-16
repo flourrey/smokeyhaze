@@ -1,0 +1,6 @@
+{
+  "name": "SG HazePulse",
+  "description": "Singapore real-time PSI air quality monitor, regional PM2.5 tracking, and NEA health advisories.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
