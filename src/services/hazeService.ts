@@ -320,30 +320,57 @@ export const fetchHazeData = async (
     }
   }
 
-  // Option 2: Try public NEA Open Data API (api.data.gov.sg)
+  // Option 2: Fetch via local Serverless API endpoint (/api/psi) which queries https://api-open.data.gov.sg/v2/real-time/api/psi
   try {
-    const res = await fetch('https://api.data.gov.sg/v1/environment/psi', {
+    const res = await fetch('/api/psi', {
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
+      },
+    });
+
+    if (res.ok) {
+      const payload = await res.json();
+      if (payload && typeof payload.nationalPsi24h === 'number') {
+        return {
+          data: {
+            ...payload,
+            dataSource: 'serverless',
+          },
+        };
+      }
+    }
+  } catch (apiErr) {
+    console.info('/api/psi serverless endpoint query bypassed or in client-only mode, checking direct open-data:', apiErr);
+  }
+
+  // Option 3: Direct fallback to data.gov.sg v2
+  try {
+    const res = await fetch('https://api-open.data.gov.sg/v2/real-time/api/psi', {
+      headers: {
+        Accept: 'application/json',
       },
     });
 
     if (res.ok) {
       const json = await res.json();
-      if (json && json.items && json.items.length > 0) {
-        const item = json.items[0];
+      if (json && json.code === 0 && json.data?.items?.length > 0) {
+        const item = json.data.items[0];
         const readings = item.readings || {};
         const psi24 = readings.psi_twenty_four_hourly || {};
-        const pm25_1h = readings.pm25_one_hour || {};
-        const pm25_24h = readings.pm25_twenty_four_hourly || {};
-        const pm10_24h = readings.pm10_twenty_four_hourly || {};
-        const o3_8h = readings.o3_eight_hour_max || {};
+        const pm25_24 = readings.pm25_twenty_four_hourly || {};
+        const pm10_24 = readings.pm10_twenty_four_hourly || {};
         const no2_1h = readings.no2_one_hour_max || {};
-        const so2_24h = readings.so2_twenty_four_hourly || {};
+        const so2_24 = readings.so2_twenty_four_hourly || {};
         const co_8h = readings.co_eight_hour_max || {};
+        const o3_8h = readings.o3_eight_hour_max || {};
 
-        const natPsi = psi24.national || psi24.central || 45;
-        const natPm25 = pm25_1h.national || pm25_1h.central || 14;
+        const regions = ['north', 'south', 'east', 'west', 'central'] as const;
+        const validPsis = regions.map((r) => psi24[r]).filter((v): v is number => typeof v === 'number');
+        const natPsi = validPsis.length > 0 ? Math.round(validPsis.reduce((a, b) => a + b, 0) / validPsis.length) : 50;
+
+        const validPm25s = regions.map((r) => pm25_24[r]).filter((v): v is number => typeof v === 'number');
+        const natPm25 = validPm25s.length > 0 ? Math.round(validPm25s.reduce((a, b) => a + b, 0) / validPm25s.length) : Math.round(natPsi * 0.7);
+
         const category = getCategoryFromPSI(natPsi);
 
         const now = new Date(item.timestamp || Date.now());
@@ -352,88 +379,88 @@ export const fetchHazeData = async (
 
         const snapshot: HazeDataSnapshot = {
           timestamp: `${dateString}, ${timeString} SGT`,
-          updatedAt: item.update_timestamp || new Date().toISOString(),
+          updatedAt: item.updatedTimestamp || new Date().toISOString(),
           nationalPsi24h: natPsi,
           nationalPm25OneHour: natPm25,
           overallCategory: category,
-          summaryText: `Official National Environment Agency (NEA) live telemetric data feed. Overall air quality is ${category}.`,
+          summaryText: `Official National Environment Agency (NEA) live telemetric feed via data.gov.sg v2. Overall air quality is ${category}.`,
           readings: {
             national: {
               region: 'national',
               name: 'Singapore (National Average)',
               psi24h: natPsi,
               pm25OneHour: natPm25,
-              pm25TwentyFourHour: pm25_24h.national || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.national || 32,
-              o3EightHour: o3_8h.national || 30,
-              no2OneHour: no2_1h.national || 20,
-              so2TwentyFourHour: so2_24h.national || 10,
-              coEightHour: co_8h.national || 0.6,
+              pm25TwentyFourHour: natPm25,
+              pm10TwentyFourHour: 32,
+              o3EightHour: 30,
+              no2OneHour: 20,
+              so2TwentyFourHour: 10,
+              coEightHour: 0.6,
               coordinates: { x: 50, y: 50, lat: 1.3521, lng: 103.8198 },
             },
             north: {
               region: 'north',
               name: 'North Region (Woodlands / Yishun)',
-              psi24h: psi24.north || natPsi,
-              pm25OneHour: pm25_1h.north || natPm25,
-              pm25TwentyFourHour: pm25_24h.north || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.north || 34,
-              o3EightHour: o3_8h.north || 28,
-              no2OneHour: no2_1h.north || 22,
-              so2TwentyFourHour: so2_24h.north || 8,
-              coEightHour: co_8h.north || 0.6,
+              psi24h: psi24.north ?? natPsi,
+              pm25OneHour: pm25_24.north ?? natPm25,
+              pm25TwentyFourHour: pm25_24.north ?? natPm25,
+              pm10TwentyFourHour: pm10_24.north ?? 34,
+              o3EightHour: o3_8h.north ?? 28,
+              no2OneHour: no2_1h.north ?? 22,
+              so2TwentyFourHour: so2_24.north ?? 8,
+              coEightHour: co_8h.north ?? 0.6,
               coordinates: { x: 50, y: 22, lat: 1.4180, lng: 103.8200 },
             },
             south: {
               region: 'south',
               name: 'South Region (Marina Bay / HarbourFront)',
-              psi24h: psi24.south || natPsi,
-              pm25OneHour: pm25_1h.south || natPm25,
-              pm25TwentyFourHour: pm25_24h.south || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.south || 30,
-              o3EightHour: o3_8h.south || 31,
-              no2OneHour: no2_1h.south || 24,
-              so2TwentyFourHour: so2_24h.south || 12,
-              coEightHour: co_8h.south || 0.7,
+              psi24h: psi24.south ?? natPsi,
+              pm25OneHour: pm25_24.south ?? natPm25,
+              pm25TwentyFourHour: pm25_24.south ?? natPm25,
+              pm10TwentyFourHour: pm10_24.south ?? 30,
+              o3EightHour: o3_8h.south ?? 31,
+              no2OneHour: no2_1h.south ?? 24,
+              so2TwentyFourHour: so2_24.south ?? 12,
+              coEightHour: co_8h.south ?? 0.7,
               coordinates: { x: 52, y: 78, lat: 1.2959, lng: 103.8558 },
             },
             east: {
               region: 'east',
               name: 'East Region (Tampines / Changi / Bedok)',
-              psi24h: psi24.east || natPsi,
-              pm25OneHour: pm25_1h.east || natPm25,
-              pm25TwentyFourHour: pm25_24h.east || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.east || 28,
-              o3EightHour: o3_8h.east || 29,
-              no2OneHour: no2_1h.east || 18,
-              so2TwentyFourHour: so2_24h.east || 6,
-              coEightHour: co_8h.east || 0.5,
+              psi24h: psi24.east ?? natPsi,
+              pm25OneHour: pm25_24.east ?? natPm25,
+              pm25TwentyFourHour: pm25_24.east ?? natPm25,
+              pm10TwentyFourHour: pm10_24.east ?? 28,
+              o3EightHour: o3_8h.east ?? 29,
+              no2OneHour: no2_1h.east ?? 18,
+              so2TwentyFourHour: so2_24.east ?? 6,
+              coEightHour: co_8h.east ?? 0.5,
               coordinates: { x: 80, y: 48, lat: 1.3574, lng: 103.9450 },
             },
             west: {
               region: 'west',
               name: 'West Region (Jurong / Tuas / Clementi)',
-              psi24h: psi24.west || natPsi,
-              pm25OneHour: pm25_1h.west || natPm25,
-              pm25TwentyFourHour: pm25_24h.west || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.west || 36,
-              o3EightHour: o3_8h.west || 35,
-              no2OneHour: no2_1h.west || 28,
-              so2TwentyFourHour: so2_24h.west || 14,
-              coEightHour: co_8h.west || 0.8,
+              psi24h: psi24.west ?? natPsi,
+              pm25OneHour: pm25_24.west ?? natPm25,
+              pm25TwentyFourHour: pm25_24.west ?? natPm25,
+              pm10TwentyFourHour: pm10_24.west ?? 36,
+              o3EightHour: o3_8h.west ?? 35,
+              no2OneHour: no2_1h.west ?? 28,
+              so2TwentyFourHour: so2_24.west ?? 14,
+              coEightHour: co_8h.west ?? 0.8,
               coordinates: { x: 22, y: 55, lat: 1.3404, lng: 103.7090 },
             },
             central: {
               region: 'central',
               name: 'Central Region (Bishan / Orchard / Toa Payoh)',
-              psi24h: psi24.central || natPsi,
-              pm25OneHour: pm25_1h.central || natPm25,
-              pm25TwentyFourHour: pm25_24h.central || Math.round(natPm25 * 0.9),
-              pm10TwentyFourHour: pm10_24h.central || 31,
-              o3EightHour: o3_8h.central || 33,
-              no2OneHour: no2_1h.central || 21,
-              so2TwentyFourHour: so2_24h.central || 7,
-              coEightHour: co_8h.central || 0.6,
+              psi24h: psi24.central ?? natPsi,
+              pm25OneHour: pm25_24.central ?? natPm25,
+              pm25TwentyFourHour: pm25_24.central ?? natPm25,
+              pm10TwentyFourHour: pm10_24.central ?? 31,
+              o3EightHour: o3_8h.central ?? 33,
+              no2OneHour: no2_1h.central ?? 21,
+              so2TwentyFourHour: so2_24.central ?? 7,
+              coEightHour: co_8h.central ?? 0.6,
               coordinates: { x: 50, y: 50, lat: 1.3521, lng: 103.8198 },
             },
           },
@@ -455,7 +482,7 @@ export const fetchHazeData = async (
       }
     }
   } catch (openDataErr) {
-    console.info('data.gov.sg direct fetch skipped or unavailable, using scenario telemetry:', openDataErr);
+    console.info('data.gov.sg v2 direct fetch skipped or unavailable, using scenario telemetry:', openDataErr);
   }
 
   // Fallback to high precision snapshot
